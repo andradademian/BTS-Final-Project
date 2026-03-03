@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TruthLens - Fake News Detection</title>
+</head>
+<body>
+    <h1>TruthLens - Fake News Detection</h1>
+
+    <div>
+        <button id="refreshBtn" onclick="loadArticles()">Refresh Articles</button>
+        <select id="categorySelect" onchange="loadArticles()">
+            <option value="">All Categories</option>
+            <option value="business">Business</option>
+            <option value="entertainment">Entertainment</option>
+            <option value="health">Health</option>
+            <option value="politics">Politics</option>
+            <option value="science">Science</option>
+            <option value="sports">Sports</option>
+            <option value="technology">Technology</option>
+        </select>
+        <span id="articleCount"></span>
+    </div>
+
+    <div id="loading" style="display: none;">Loading articles...</div>
+
+    <div id="articlesContainer"></div>
+
+    <div id="noArticles" style="display: none;">No articles found.</div>
+
+    <script>
+        let articles = [];
+
+        window.addEventListener('DOMContentLoaded', () => {
+            loadArticles();
+        });
+
+        async function loadArticles() {
+            const category = document.getElementById('categorySelect').value;
+            const loading = document.getElementById('loading');
+            const container = document.getElementById('articlesContainer');
+            const noArticles = document.getElementById('noArticles');
+            const refreshBtn = document.getElementById('refreshBtn');
+
+            loading.style.display = 'block';
+            container.innerHTML = '';
+            noArticles.style.display = 'none';
+            refreshBtn.disabled = true;
+
+            try {
+                const params = new URLSearchParams({
+                    country: 'us',
+                    language: 'en'
+                });
+
+                if (category) {
+                    params.append('category', category);
+                }
+
+                const response = await fetch(`/api/articles?${params}`);
+                const data = await response.json();
+
+                if (data.status === 'success' && data.articles.length > 0) {
+                    articles = data.articles;
+                    displayArticles(articles);
+                    document.getElementById('articleCount').textContent =
+                        `${articles.length} articles loaded`;
+                } else {
+                    noArticles.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Error loading articles:', error);
+                container.innerHTML = '<p>Error loading articles. Please try again.</p>';
+            } finally {
+                loading.style.display = 'none';
+                refreshBtn.disabled = false;
+            }
+        }
+
+        function displayArticles(articles) {
+            const container = document.getElementById('articlesContainer');
+            container.innerHTML = '';
+
+            articles.forEach((article, index) => {
+                const div = document.createElement('div');
+                div.style.border = '1px solid #ccc';
+                div.style.padding = '10px';
+                div.style.margin = '10px 0';
+
+                div.innerHTML = `
+                    <h3>${article.title}</h3>
+                    <p><strong>Source:</strong> ${article.source_name || article.source}</p>
+                    <p><strong>Published:</strong> ${new Date(article.published_at).toLocaleDateString()}</p>
+                    <p>${article.description}</p>
+                    <button onclick="analyzeArticle(${index})">Analyze Article</button>
+                    <a href="${article.url}" target="_blank">Read Full Article</a>
+                    <hr>
+                `;
+
+                container.appendChild(div);
+            });
+        }
+
+        async function analyzeArticle(index) {
+            const article = articles[index];
+
+            try {
+                const response = await fetch('/api/analyze', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        title: article.title,
+                        text: article.content,
+                        article_id: article.id
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    alert(`Analysis Result:\n\nClassification: ${data.analysis.classification}\nReal: ${Math.round(data.analysis.prob_real * 100)}%\nFake: ${Math.round(data.analysis.prob_fake * 100)}%`);
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            } catch (error) {
+                console.error('Error analyzing article:', error);
+                alert('Error analyzing article. Please try again.');
+            }
+        }
+    </script>
+</body>
+</html>
