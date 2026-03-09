@@ -73,6 +73,13 @@ function displayArticles(articles) {
             `<span class="category-badge">${cat}</span>`
         ).join('');
 
+        // Limit description length
+        const maxDescriptionLength = 400; // characters
+        let description = article.description || 'No description available';
+        if (description.length > maxDescriptionLength) {
+            description = description.substring(0, maxDescriptionLength) + '...';
+        }
+
         card.innerHTML = `
             <div class="article-meta">
                 <span class="article-source">${article.source_name || article.source}</span>
@@ -81,7 +88,7 @@ function displayArticles(articles) {
             </div>
             ${categoryBadges}
             <h2 class="article-title">${article.title}</h2>
-            <p class="article-description">${article.description}</p>
+            <p class="article-description">${description}</p>
             <div class="article-actions">
                 <button class="btn-analyze" onclick="analyzeArticle(${index})">
                     Analyze Article
