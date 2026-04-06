@@ -7,60 +7,70 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <div class="header">
-        <h1>VerifAI</h1>
+<div class="header">
+    <h1>VerifAI</h1>
+</div>
 
+<div class="container">
+    <div class="controls">
+        <button id="refreshBtn">Refresh Articles</button>
+
+        <input
+                type="text"
+                id="searchInput"
+                placeholder="Search articles by keyword..."
+        >
+
+        <select id="categorySelect">
+            <option value="">All Categories</option>
+            <option value="business">Business</option>
+            <option value="entertainment">Entertainment</option>
+            <option value="health">Health</option>
+            <option value="politics">Politics</option>
+            <option value="science">Science</option>
+            <option value="sports">Sports</option>
+            <option value="technology">Technology</option>
+        </select>
+
+        <button id="searchBtn">Search</button>
+
+        <span id="articleCount"></span>
     </div>
 
-    <div class="container">
-        <div class="controls">
-            <button id="refreshBtn">Refresh Articles</button>
-            <select id="categorySelect">
-                <option value="">All Categories</option>
-                <option value="business">Business</option>
-                <option value="entertainment">Entertainment</option>
-                <option value="health">Health</option>
-                <option value="politics">Politics</option>
-                <option value="science">Science</option>
-                <option value="sports">Sports</option>
-                <option value="technology">Technology</option>
-            </select>
-            <span id="articleCount"></span>
-        </div>
+    <div id="loading" class="loading">Loading articles...</div>
 
-        <div id="loading" class="loading">Loading articles...</div>
-
-        <div id="articlesContainer" class="articles-grid">
-            <!-- Articles displayed here -->
-        </div>
-
-        <div id="noArticles" class="no-articles">No articles found.</div>
+    <div id="articlesContainer" class="articles-grid">
+        <!-- Articles will be displayed here -->
     </div>
 
-    <div id="analysisModal" class="analysis-modal">
-        <div class="modal-content">
-            <button class="modal-close">&times;</button>
-            <div id="analysisContent">
-                <h2>Analysis Results</h2>
-                <div class="analysis-section">
-                    <h3>Credibility Score</h3>
-                    <div class="credibility-bar">
-                        <div class="credibility-fill"></div>
-                    </div>
-                    <p><strong>Real:</strong> <span id="probReal">--</span>%</p>
-                    <p><strong>Fake:</strong> <span id="probFake">--</span>%</p>
-                    <p><strong>Classification:</strong> <span id="classification">--</span></p>
-                </div>
+    <div id="noArticles" class="no-articles">No articles found.</div>
+</div>
 
-                <div class="analysis-section">
-                    <h3>Crisis Detection</h3>
-                    <p><strong>Crisis-Related:</strong> <span id="crisisDetected">--</span></p>
-                    <p><strong>Categories:</strong> <span id="crisisCategories">--</span></p>
+<!-- Analysis Model -->
+<div id="analysisModal" class="analysis-modal">
+    <div class="modal-content">
+        <button class="modal-close">&times;</button>
+        <div id="analysisContent">
+            <h2>Analysis Results</h2>
+            <div class="analysis-section">
+                <h3>📊 Credibility Score</h3>
+                <div class="credibility-bar">
+                    <div class="credibility-fill"></div>
                 </div>
+                <p><strong>Real:</strong> <span id="probReal">--</span>%</p>
+                <p><strong>Fake:</strong> <span id="probFake">--</span>%</p>
+                <p><strong>Classification:</strong> <span id="classification">--</span></p>
+            </div>
+
+            <div class="analysis-section">
+                <h3>Crisis Detection</h3>
+                <p><strong>Crisis-Related:</strong> <span id="crisisDetected">--</span></p>
+                <p><strong>Categories:</strong> <span id="crisisCategories">--</span></p>
             </div>
         </div>
     </div>
+</div>
 
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
+<script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>
