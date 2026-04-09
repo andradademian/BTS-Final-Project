@@ -18,8 +18,26 @@ body {
 }
 
 .header h1 {
-    font-size: 2rem;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 2.8rem;
     margin-bottom: 0.5rem;
+
+    background: linear-gradient(
+        to right,
+        #ff8c42 0%,
+        #ffd6b3 25%,
+        #ffffff 40%,
+        #b3f7ff 60%,
+        #00e5ff 75%,
+        #2ecc71 100%
+    );
+
+    background-size: 100% 100%;   /* IMPORTANT FIX */
+    display: inline-block;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+
+    letter-spacing: 1px;
 }
 
 .header p {
