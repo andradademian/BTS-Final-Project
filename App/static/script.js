@@ -1,19 +1,38 @@
 let articles = [];
+let nextPage = null;
+let isLoading = false;
+let currentCategory = '';
+let currentSearchQuery = '';
 
 window.addEventListener('DOMContentLoaded', () => {
     loadArticles();
     setupEventListeners();
+    setupInfiniteScroll();
 });
 
 function setupEventListeners() {
-    document.getElementById('refreshBtn').addEventListener('click', loadArticles);
-    document.getElementById('categorySelect').addEventListener('change', loadArticles);
-    document.getElementById('searchBtn').addEventListener('click', loadArticles);
+    document.getElementById('refreshBtn').addEventListener('click', () => {
+        articles = [];
+        nextPage = null;
+        loadArticles();
+    });
+    document.getElementById('categorySelect').addEventListener('change', () => {
+        articles = [];
+        nextPage = null;
+        loadArticles();
+    });
+    document.getElementById('searchBtn').addEventListener('click', () => {
+        articles = [];
+        nextPage = null;
+        loadArticles();
+    });
     document.querySelector('.modal-close').addEventListener('click', closeModal);
 
     // Allow Enter key to search
     document.getElementById('searchInput').addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
+            articles = [];
+            nextPage = null;
             loadArticles();
         }
     });
@@ -26,7 +45,18 @@ function setupEventListeners() {
     });
 }
 
-async function loadArticles() {
+function setupInfiniteScroll() {
+    window.addEventListener('scroll', () => {
+        // Check if user scrolled near bottom
+        if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 500) {
+            if (nextPage && !isLoading) {
+                loadMoreArticles();
+            }
+        }
+    });
+}
+
+async function loadArticles(append = false) {
     const category = document.getElementById('categorySelect').value;
     const searchQuery = document.getElementById('searchInput').value.trim();
     const loading = document.getElementById('loading');
@@ -35,11 +65,17 @@ async function loadArticles() {
     const refreshBtn = document.getElementById('refreshBtn');
     const searchBtn = document.getElementById('searchBtn');
 
-    loading.style.display = 'block';
-    container.innerHTML = '';
-    noArticles.style.display = 'none';
-    refreshBtn.disabled = true;
-    searchBtn.disabled = true;
+    if (!append) {
+        isLoading = true;
+        loading.style.display = 'block';
+        container.innerHTML = '';
+        noArticles.style.display = 'none';
+        refreshBtn.disabled = true;
+        searchBtn.disabled = true;
+    }
+
+    currentCategory = category;
+    currentSearchQuery = searchQuery;
 
     try {
         const params = new URLSearchParams({
@@ -55,41 +91,114 @@ async function loadArticles() {
             params.append('q', searchQuery);
         }
 
+        if (append && nextPage) {
+            params.append('page', nextPage);
+        }
+
         const response = await fetch(`/api/articles?${params}`);
         const data = await response.json();
 
         if (data.status === 'success' && data.articles.length > 0) {
-            articles = data.articles;
-            displayArticles(articles);
+            // Append or replace articles
+            if (append) {
+                articles = articles.concat(data.articles);
+            } else {
+                articles = data.articles;
+            }
+
+            nextPage = data.nextPage || null;
+
+            // Sort articles: title matches first, then body matches
+            if (searchQuery) {
+                articles = sortArticlesByKeyword(articles, searchQuery);
+            }
+
+            if (!append) {
+                displayArticles(articles);
+            } else {
+                appendArticles(data.articles);
+            }
 
             let countText = `${articles.length} article${articles.length !== 1 ? 's' : ''} loaded`;
             if (searchQuery) {
                 countText += ` for "${searchQuery}"`;
             }
+            if (nextPage) {
+                countText += ' (scroll for more)';
+            }
             document.getElementById('articleCount').textContent = countText;
         } else {
-            noArticles.style.display = 'block';
-            if (searchQuery) {
-                noArticles.textContent = `No articles found for "${searchQuery}". Try a different search term.`;
-            } else {
-                noArticles.textContent = 'No articles found.';
+            if (!append) {
+                noArticles.style.display = 'block';
+                if (searchQuery) {
+                    noArticles.textContent = `No articles found for "${searchQuery}". Try a different search term.`;
+                } else {
+                    noArticles.textContent = 'No articles found.';
+                }
             }
         }
     } catch (error) {
         console.error('Error loading articles:', error);
-        container.innerHTML = '<div class="no-articles">Error loading articles. Please try again.</div>';
+        if (!append) {
+            container.innerHTML = '<div class="no-articles">Error loading articles. Please try again.</div>';
+        }
     } finally {
-        loading.style.display = 'none';
-        refreshBtn.disabled = false;
-        searchBtn.disabled = false;
+        if (!append) {
+            loading.style.display = 'none';
+            refreshBtn.disabled = false;
+            searchBtn.disabled = false;
+        }
+        isLoading = false;
     }
+}
+
+async function loadMoreArticles() {
+    if (!nextPage || isLoading) return;
+
+    isLoading = true;
+    console.log('Loading more articles...');
+    await loadArticles(true);
+}
+
+function sortArticlesByKeyword(articles, keyword) {
+    const lowerKeyword = keyword.toLowerCase();
+
+    // Separate articles into title matches and body matches
+    const titleMatches = [];
+    const bodyMatches = [];
+    const noMatches = [];
+
+    articles.forEach(article => {
+        const titleLower = (article.title || '').toLowerCase();
+        const descriptionLower = (article.description || '').toLowerCase();
+        const contentLower = (article.content || '').toLowerCase();
+
+        if (titleLower.includes(lowerKeyword)) {
+            titleMatches.push(article);
+        } else if (descriptionLower.includes(lowerKeyword) || contentLower.includes(lowerKeyword)) {
+            bodyMatches.push(article);
+        } else {
+            noMatches.push(article);
+        }
+    });
+
+    // Return title matches first, then body matches, then others
+    return [...titleMatches, ...bodyMatches, ...noMatches];
 }
 
 function displayArticles(articles) {
     const container = document.getElementById('articlesContainer');
     container.innerHTML = '';
+    appendArticles(articles);
+}
 
-    articles.forEach((article, index) => {
+function appendArticles(newArticles) {
+    const container = document.getElementById('articlesContainer');
+
+    newArticles.forEach((article, globalIndex) => {
+        // Calculate actual index in the full articles array
+        const articleIndex = articles.findIndex(a => a.id === article.id);
+
         const card = document.createElement('div');
         card.className = 'article-card';
 
@@ -115,7 +224,7 @@ function displayArticles(articles) {
             <h2 class="article-title">${article.title}</h2>
             <p class="article-description">${description}</p>
             <div class="article-actions">
-                <button class="btn-analyze" onclick="analyzeArticle(${index})">
+                <button class="btn-analyze" data-index="${articleIndex}">
                     Analyze Article
                 </button>
                 <a href="${article.url}" target="_blank" class="btn-read">
@@ -123,6 +232,10 @@ function displayArticles(articles) {
                 </a>
             </div>
         `;
+
+        // Add event listener to the analyze button
+        const analyzeBtn = card.querySelector('.btn-analyze');
+        analyzeBtn.addEventListener('click', () => analyzeArticle(articleIndex));
 
         container.appendChild(card);
     });
@@ -180,7 +293,7 @@ function displayAnalysis(analysis) {
         <h2>Analysis Results</h2>
         
         <div class="analysis-section">
-            <h3>📊 Credibility Score</h3>
+            <h3>Credibility Score</h3>
             <div class="credibility-bar">
                 <div class="credibility-fill ${credibilityClass}" style="width: ${probReal}%">
                     ${probReal}%

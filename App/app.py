@@ -5,19 +5,14 @@ import os
 from datetime import datetime
 from dotenv import load_dotenv
 
-# Load environment variables
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for frontend requests
+CORS(app)
 
-# Configuration - Load from environment
-NEWSDATA_API_KEY = os.getenv('NEWSDATA_API_KEY')
-NEWSDATA_API_URL = "https://newsdata.io/api/1/latest"
-
-# Validate API key exists
-if not NEWSDATA_API_KEY:
-    raise ValueError("NEWSDATA_API_KEY not found in environment variables. Please set it in .env file")
+# Configuration - load from environment
+NEWSDATA_API_KEY = os.getenv('NEWSDATA_API_KEY', '')
+NEWSDATA_API_URL = os.getenv('NEWS_API_BASE_URL', 'https://newsdata.io/api/1/latest')
 
 # Store fetched articles in memory (use database in production)
 articles_cache = []
@@ -25,18 +20,28 @@ articles_cache = []
 
 @app.route('/')
 def index():
+    """Render the main page"""
     return render_template('index.html')
 
 
 @app.route('/api/articles', methods=['GET'])
 def get_articles():
-
+    """
+    Fetch articles from newsdata.io API and return as JSON
+    Query parameters:
+    - country: country code (default: us)
+    - language: language code (default: en)
+    - category: news category (optional)
+    - q: search query (optional)
+    - page: page token for pagination (optional)
+    """
     try:
         # Get query parameters
         country = request.args.get('country', 'us')
         language = request.args.get('language', 'en')
         category = request.args.get('category', '')
         query = request.args.get('q', '')
+        page = request.args.get('page', '')  # For pagination
 
         # Build API request parameters
         params = {
@@ -51,7 +56,10 @@ def get_articles():
         if query:
             params['q'] = query
 
-        print(f"Fetching articles with params (country={country}, lang={language}, category={category})")
+        if page:
+            params['page'] = page
+
+        print(f"Fetching articles with params: {params}")
 
         # Make request to newsdata.io
         response = requests.get(NEWSDATA_API_URL, params=params, timeout=10)
@@ -92,16 +100,20 @@ def get_articles():
                 }
                 articles.append(processed_article)
 
-            # Cache articles
+            # Cache articles (append for infinite scroll)
             global articles_cache
-            articles_cache = articles
+            if not page:  # First page, replace cache
+                articles_cache = articles
+            else:  # Additional pages, append to cache
+                articles_cache.extend(articles)
 
             print(f"Successfully fetched {len(articles)} articles (filtered out paid-only)")
 
             return jsonify({
                 'status': 'success',
                 'total_results': len(articles),
-                'articles': articles
+                'articles': articles,
+                'nextPage': data.get('nextPage', None)  # Token for next page
             })
         else:
             return jsonify({
@@ -125,6 +137,7 @@ def get_articles():
 
 @app.route('/api/article/<article_id>', methods=['GET'])
 def get_article(article_id):
+    """Get a specific article by ID"""
     article = next((a for a in articles_cache if a['id'] == article_id), None)
 
     if article:
@@ -141,7 +154,10 @@ def get_article(article_id):
 
 @app.route('/api/analyze', methods=['POST'])
 def analyze_article():
-    #here connect with the ml model
+    """
+    Analyze an article for fake news detection
+    This endpoint will be connected to your ML model
+    """
     try:
         data = request.get_json()
 
@@ -155,7 +171,8 @@ def analyze_article():
                 'message': 'Title and text are required'
             }), 400
 
-        #for now, return mock data
+        # TODO: Connect to your ML model here
+        # For now, return mock data
         result = {
             'status': 'success',
             'article_id': article_id,
@@ -181,7 +198,11 @@ def analyze_article():
 
 
 if __name__ == '__main__':
-    print("Starting Flask server...")
-    print("API endpoint: http://localhost:5000")
-    print("Test articles: http://localhost:5000/api/articles")
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    if not NEWSDATA_API_KEY:
+        print("⚠ERROR: NEWSDATA_API_KEY not found in environment")
+        print("Please set it in .env file or as environment variable")
+    else:
+        print("Starting Flask server...")
+        print("API endpoint: http://localhost:5000")
+        print("Test articles: http://localhost:5000/api/articles")
+        app.run(debug=True, host='0.0.0.0', port=5000)
